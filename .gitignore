@@ -1,0 +1,43 @@
+# R and RStudio files
+.Rhistory
+.RData
+.Rproj.user
+.Rprofile
+.Renviron
+*.Rproj
+
+# R package build files
+*.tar.gz
+*.zip
+/man/*.Rd
+/Meta/
+/doc/
+/docs/
+
+# R check results
+/*.Rcheck/
+
+# Temporary files
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# User data and credentials (IMPORTANT)
+.httr-oauth
+.secrets
+*.rds
+*.qs
+data-local/
+
+# Development
+/dev/*.html
+rsconnect/
+packrat/
+renv/
+.Rproj.user

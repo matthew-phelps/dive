@@ -1,0 +1,31 @@
+Package: dive
+Title: Activity Tracking Dashboard for Running and Cycling
+Version: 0.0.1
+Authors@R:
+    person("First", "Last", , "email@example.com", role = c("cre", "aut"))
+Description: A Shiny application for tracking, analyzing, and visualizing
+    running and cycling activities from Strava and RideWithGPS. Provides
+    deduplication, summary statistics, and distance trend visualizations.
+License: Apache License (>= 2)
+Imports:
+    config (>= 0.3.2),
+    data.table,
+    golem (>= 0.5.0),
+    httr2,
+    jsonlite,
+    keyring,
+    lubridate,
+    plotly,
+    qs,
+    shiny (>= 1.7.5),
+    bslib
+Suggests:
+    devtools,
+    pkgload,
+    roxygen2,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-US
+LazyData: true
+RoxygenNote: 7.3.3
