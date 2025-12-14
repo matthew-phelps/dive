@@ -94,15 +94,51 @@ All data lives in `~/.dive/` (created by `init_storage()`):
 
 ### Data Processing Pipeline
 
+The pipeline follows these stages:
+
 1. **Fetch** (`auth_*.R`, `api_*.R`): OAuth + API calls to get activity metadata
-2. **Clean** (`data_cleaning.R`): Standardize field names, units, types from both sources
-3. **Deduplicate** (`data_deduplication.R`): Match activities across sources using date/time/distance heuristics
-4. **Cache** (`storage.R`): Save computed summaries with `qs` for fast reload
+2. **Harmonize** (`data_cleaning.R`): Convert API-specific formats to canonical schema
+3. **Combine** (`data_cleaning.R`): Merge harmonized data from both sources
+4. **Clean** (`data_cleaning.R`): Validate, remove invalid data, add calculated fields
+5. **Deduplicate** (`data_deduplication.R`): Match activities across sources using date/time/distance heuristics
+6. **Cache** (`storage.R`): Save computed summaries with `qs` for fast reload
 
 **Key functions:**
-- `storage.R`: All file I/O goes through here (single source of truth for paths)
-- `data_cleaning.R`: Converts API-specific schemas to common format
-- `data_deduplication.R`: Implements fuzzy matching logic
+- `harmonize_strava_raw()`: Converts Strava list/data.frame → canonical schema
+- `harmonize_rwgps_raw()`: Converts RWGPS list/data.frame → canonical schema
+- `combine_activities()`: Merges harmonized data.tables with `rbindlist()`
+- `clean_activities()`: Post-merge validation and calculated fields
+- `process_activities()`: High-level orchestrator of the entire pipeline
+
+### Canonical Schema
+
+All activities are harmonized to this standardized schema (14 fields):
+
+| Field | Type | Unit | Source Mapping |
+|-------|------|------|----------------|
+| `activity_id` | character | - | Strava: `id`, RWGPS: `id` |
+| `source` | character | - | "strava" or "rwgps" |
+| `activity_type` | character | - | Standardized: "running", "cycling", "other" |
+| `date` | Date | - | Calendar date of activity |
+| `start_time` | character | HH:MM:SS | Time of day (from UTC datetime) |
+| `start_datetime` | POSIXct | UTC | Strava: `start_date`, RWGPS: `departed_at` |
+| `distance` | numeric | meters | Strava: `distance`, RWGPS: `distance` |
+| `duration` | numeric | seconds | Strava: `moving_time`, RWGPS: `moving_time` (fallback: `duration`) |
+| `elevation_gain` | numeric | meters | Strava: `total_elevation_gain`, RWGPS: `elevation_gain` |
+| `has_heartrate` | logical | - | Strava: `has_heartrate`, RWGPS: inferred from `avg_hr` |
+| `avg_heartrate` | numeric | bpm | Strava: `average_heartrate`, RWGPS: `avg_hr` |
+| `max_heartrate` | numeric | bpm | Strava: `max_heartrate`, RWGPS: `max_hr` |
+| `name` | character | - | Activity name/title |
+| `raw_type` | character | - | Original type from API for debugging |
+
+**Activity Type Mapping:**
+- Strava: "Run", "VirtualRun" → "running"; "Ride", "VirtualRide" → "cycling"
+- RWGPS: "running", "cycling:*" → standardized values
+
+**Unit Consistency:**
+- Both APIs use meters for distance ✓
+- Both APIs use seconds for duration ✓
+- Strava uses `moving_time`, RWGPS provides both `moving_time` (preferred) and `duration`
 
 ### Deduplication Logic
 
@@ -169,3 +205,7 @@ This is a `{golem}` Shiny app package:
 - Configuration in `inst/golem-config.yml`
 
 Use `data.table` for all data manipulation (faster than dplyr for this use case).
+
+## git
+
+- Do not add claude citation to git messages
