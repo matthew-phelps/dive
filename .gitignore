@@ -34,6 +34,7 @@ Thumbs.db
 *.rds
 *.qs
 data-local/
+data-raw/
 
 # Data files
 *.json

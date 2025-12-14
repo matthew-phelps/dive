@@ -3,11 +3,11 @@
 #' Fetches all activities from Strava API and saves the raw JSON response
 #' for later processing. This avoids repeatedly hitting the API during development.
 #'
-#' @param output_file Path to save the raw data (default: "strava_raw_full.rds")
+#' @param output_file Path to save the raw data (default: "data-raw/strava_raw_full.rds")
 #' @param per_page Number of activities per page (max 200)
 #' @return Invisible list of raw activity data
 #' @export
-fetch_raw_strava <- function(output_file = "strava_raw_full.rds", per_page = 200) {
+fetch_raw_strava <- function(output_file = "data-raw/strava_raw_full.rds", per_page = 200) {
   message("Fetching raw Strava data...")
 
   # Make sure we're authenticated
@@ -90,7 +90,7 @@ fetch_raw_strava <- function(output_file = "strava_raw_full.rds", per_page = 200
 #' @param input_file Path to the saved raw data file
 #' @return List of raw activity data
 #' @export
-load_raw_strava <- function(input_file = "strava_raw_full.rds") {
+load_raw_strava <- function(input_file = "data-raw/strava_raw_full.rds") {
   if (!file.exists(input_file)) {
     stop("Raw data file not found: ", input_file, "\n",
          "Run fetch_raw_strava() first!")
@@ -150,11 +150,11 @@ inspect_raw_strava <- function(raw_data = NULL) {
 #' Fetches all trips from RideWithGPS API and saves the raw JSON response
 #' for later processing.
 #'
-#' @param output_file Path to save the raw data (default: "rwgps_raw_full.rds")
+#' @param output_file Path to save the raw data (default: "data-raw/rwgps_raw_full.rds")
 #' @param limit Number of trips per page (default 50)
 #' @return Invisible list of raw trip data
 #' @export
-fetch_raw_rwgps <- function(output_file = "rwgps_raw_full.rds", limit = 50) {
+fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit = 50) {
   message("Fetching raw RideWithGPS data...")
 
   # Check if credentials are configured
@@ -265,7 +265,7 @@ fetch_raw_rwgps <- function(output_file = "rwgps_raw_full.rds", limit = 50) {
 #' @param input_file Path to the saved raw data file
 #' @return List of raw trip data
 #' @export
-load_raw_rwgps <- function(input_file = "rwgps_raw_full.rds") {
+load_raw_rwgps <- function(input_file = "data-raw/rwgps_raw_full.rds") {
   if (!file.exists(input_file)) {
     stop("Raw data file not found: ", input_file, "\n",
          "Run fetch_raw_rwgps() first!")
