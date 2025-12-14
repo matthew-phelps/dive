@@ -104,15 +104,15 @@ The pipeline follows these stages:
 6. **Cache** (`storage.R`): Save computed summaries with `qs` for fast reload
 
 **Key functions:**
-- `harmonize_strava_raw()`: Converts Strava list/data.frame → canonical schema
-- `harmonize_rwgps_raw()`: Converts RWGPS list/data.frame → canonical schema
+- `harmonize_strava_raw()`: Converts Strava list (from API) → canonical schema
+- `harmonize_rwgps_raw()`: Converts RWGPS list (from API) → canonical schema
 - `combine_activities()`: Merges harmonized data.tables with `rbindlist()`
-- `clean_activities()`: Post-merge validation and calculated fields
+- `clean_activities()`: Post-merge validation and calculated fields (adds pace for running)
 - `process_activities()`: High-level orchestrator of the entire pipeline
 
 ### Canonical Schema
 
-All activities are harmonized to this standardized schema (14 fields):
+All activities are harmonized to this standardized schema (16 fields):
 
 | Field | Type | Unit | Source Mapping |
 |-------|------|------|----------------|
@@ -128,6 +128,8 @@ All activities are harmonized to this standardized schema (14 fields):
 | `has_heartrate` | logical | - | Strava: `has_heartrate`, RWGPS: inferred from `avg_hr` |
 | `avg_heartrate` | numeric | bpm | Strava: `average_heartrate`, RWGPS: `avg_hr` |
 | `max_heartrate` | numeric | bpm | Strava: `max_heartrate`, RWGPS: `max_hr` |
+| `avg_speed` | numeric | km/h | Strava: `average_speed` (m/s → km/h), RWGPS: `avg_speed` |
+| `max_speed` | numeric | km/h | Strava: `max_speed` (m/s → km/h), RWGPS: `max_speed` |
 | `name` | character | - | Activity name/title |
 | `raw_type` | character | - | Original type from API for debugging |
 
@@ -139,6 +141,7 @@ All activities are harmonized to this standardized schema (14 fields):
 - Both APIs use meters for distance ✓
 - Both APIs use seconds for duration ✓
 - Strava uses `moving_time`, RWGPS provides both `moving_time` (preferred) and `duration`
+- Strava provides speed in m/s (converted to km/h), RWGPS provides speed in km/h ✓
 
 ### Deduplication Logic
 

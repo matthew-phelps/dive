@@ -4,219 +4,127 @@
 
 #' Harmonize raw Strava data to standard schema
 #'
-#' Converts raw Strava API data (list format from data-raw/) to standardized data.table.
-#' Handles both list-of-lists format (from JSON) and data.frame format.
+#' Converts raw Strava API data (list format from API) to standardized data.table.
 #'
-#' @param strava_raw List of raw activities or data.frame from stored Strava data
+#' @param strava_raw List of raw activities from Strava API
 #' @return data.table with standardized schema
 #' @export
 harmonize_strava_raw <- function(strava_raw) {
-  if (is.null(strava_raw)) {
+  if (is.null(strava_raw) || length(strava_raw) == 0) {
     return(data.table::data.table())
   }
 
-  # Handle list format (raw JSON from API)
-  if (is.list(strava_raw) && !is.data.frame(strava_raw)) {
-    if (length(strava_raw) == 0) {
-      return(data.table::data.table())
-    }
-
-    # Helper to safely extract scalar values
-    get_val <- function(x, default = NA) {
-      if (is.null(x)) return(default)
-      if (length(x) == 0) return(default)
-      return(x)
-    }
-
-    # Convert each list element to a standardized row
-    rows <- lapply(strava_raw, function(act) {
-      # Standardize activity type
-      activity_type <- data.table::fcase(
-        act$type %in% c("Run", "VirtualRun"), "running",
-        act$type %in% c("Ride", "VirtualRide"), "cycling",
-        default = "other"
-      )
-
-      # Parse start date
-      start_datetime <- lubridate::ymd_hms(act$start_date, tz = "UTC")
-
-      list(
-        activity_id = as.character(get_val(act$id)),
-        source = "strava",
-        activity_type = activity_type,
-        date = as.Date(start_datetime),
-        start_time = format(start_datetime, "%H:%M:%S"),
-        start_datetime = start_datetime,
-        distance = get_val(act$distance, 0),  # meters
-        duration = get_val(act$moving_time, 0),  # seconds
-        elevation_gain = get_val(act$total_elevation_gain, 0),  # meters
-        has_heartrate = get_val(act$has_heartrate, FALSE),
-        avg_heartrate = get_val(act$average_heartrate, NA_real_),
-        max_heartrate = get_val(act$max_heartrate, NA_real_),
-        name = get_val(act$name, ""),
-        raw_type = get_val(act$type, "")
-      )
-    })
-
-    # Convert to data.table
-    dt <- data.table::rbindlist(rows)
-    return(dt)
+  if (!is.list(strava_raw) || is.data.frame(strava_raw)) {
+    stop("strava_raw must be a list of activities from the API")
   }
 
-  # Handle data.frame format (from earlier processing)
-  if (is.data.frame(strava_raw)) {
-    if (nrow(strava_raw) == 0) {
-      return(data.table::data.table())
-    }
+  # Helper to safely extract scalar values
+  get_val <- function(x, default = NA) {
+    if (is.null(x)) return(default)
+    if (length(x) == 0) return(default)
+    return(x)
+  }
 
-    dt <- data.table::as.data.table(strava_raw)
-
+  # Convert each list element to a standardized row
+  rows <- lapply(strava_raw, function(act) {
     # Standardize activity type
-    dt[, activity_type := data.table::fcase(
-      type %in% c("Run", "VirtualRun"), "running",
-      type %in% c("Ride", "VirtualRide"), "cycling",
+    activity_type <- data.table::fcase(
+      act$type %in% c("Run", "VirtualRun"), "running",
+      act$type %in% c("Ride", "VirtualRide"), "cycling",
       default = "other"
-    )]
+    )
 
     # Parse start date
-    dt[, start_datetime := lubridate::ymd_hms(start_date, tz = "UTC")]
-    dt[, date := as.Date(start_datetime)]
-    dt[, start_time := format(start_datetime, "%H:%M:%S")]
+    start_datetime <- lubridate::ymd_hms(act$start_date, tz = "UTC")
 
-    # Extract relevant fields with standardized names
-    result <- dt[, .(
-      activity_id = as.character(id),
+    list(
+      activity_id = as.character(get_val(act$id)),
       source = "strava",
-      activity_type,
-      date,
-      start_time,
-      start_datetime,
-      distance = distance,  # meters
-      duration = moving_time,  # seconds
-      elevation_gain = total_elevation_gain,  # meters
-      has_heartrate = has_heartrate,
-      avg_heartrate = if ("average_heartrate" %in% names(dt)) average_heartrate else NA_real_,
-      max_heartrate = if ("max_heartrate" %in% names(dt)) max_heartrate else NA_real_,
-      name = name,
-      raw_type = type
-    )]
+      activity_type = activity_type,
+      date = as.Date(start_datetime),
+      start_time = format(start_datetime, "%H:%M:%S"),
+      start_datetime = start_datetime,
+      distance = get_val(act$distance, 0),  # meters
+      duration = get_val(act$moving_time, 0),  # seconds
+      elevation_gain = get_val(act$total_elevation_gain, 0),  # meters
+      has_heartrate = get_val(act$has_heartrate, FALSE),
+      avg_heartrate = get_val(act$average_heartrate, NA_real_),
+      max_heartrate = get_val(act$max_heartrate, NA_real_),
+      avg_speed = get_val(act$average_speed, NA_real_) * 3.6,  # m/s to km/h
+      max_speed = get_val(act$max_speed, NA_real_) * 3.6,  # m/s to km/h
+      name = get_val(act$name, ""),
+      raw_type = get_val(act$type, "")
+    )
+  })
 
-    return(result)
-  }
-
-  # Unknown format
-  stop("strava_raw must be a list or data.frame")
+  # Convert to data.table
+  dt <- data.table::rbindlist(rows)
+  return(dt)
 }
 
 #' Harmonize raw RideWithGPS data to standard schema
 #'
-#' Converts raw RideWithGPS API data (list format from data-raw/) to standardized data.table.
-#' Handles both list-of-lists format (from JSON) and data.frame format.
+#' Converts raw RideWithGPS API data (list format from API) to standardized data.table.
 #'
-#' @param rwgps_raw List of raw trips or data.frame from stored RWGPS data
+#' @param rwgps_raw List of raw trips from RideWithGPS API
 #' @return data.table with standardized schema
 #' @export
 harmonize_rwgps_raw <- function(rwgps_raw) {
-  if (is.null(rwgps_raw)) {
+  if (is.null(rwgps_raw) || length(rwgps_raw) == 0) {
     return(data.table::data.table())
   }
 
-  # Handle list format (raw JSON from API)
-  if (is.list(rwgps_raw) && !is.data.frame(rwgps_raw)) {
-    if (length(rwgps_raw) == 0) {
-      return(data.table::data.table())
-    }
-
-    # Helper to safely extract scalar values
-    get_val <- function(x, default = NA) {
-      if (is.null(x)) return(default)
-      if (length(x) == 0) return(default)
-      return(x)
-    }
-
-    # Convert each list element to a standardized row
-    rows <- lapply(rwgps_raw, function(trip) {
-      # Standardize activity type (handle "cycling:road", "running", etc.)
-      raw_type <- get_val(trip$activity_type, "")
-      activity_type <- data.table::fcase(
-        grepl("running", raw_type, ignore.case = TRUE), "running",
-        grepl("cycling", raw_type, ignore.case = TRUE), "cycling",
-        default = "other"
-      )
-
-      # Parse start date - RWGPS uses 'departed_at'
-      start_datetime <- lubridate::ymd_hms(trip$departed_at, tz = "UTC")
-
-      # Handle heart rate
-      avg_hr <- get_val(trip$avg_hr, NA_real_)
-      has_hr <- !is.na(avg_hr)
-
-      list(
-        activity_id = as.character(get_val(trip$id)),
-        source = "rwgps",
-        activity_type = activity_type,
-        date = as.Date(start_datetime),
-        start_time = format(start_datetime, "%H:%M:%S"),
-        start_datetime = start_datetime,
-        distance = get_val(trip$distance, 0),  # meters
-        duration = get_val(trip$moving_time, get_val(trip$duration, 0)),  # seconds, prefer moving_time
-        elevation_gain = get_val(trip$elevation_gain, 0),  # meters
-        has_heartrate = has_hr,
-        avg_heartrate = avg_hr,
-        max_heartrate = get_val(trip$max_hr, NA_real_),
-        name = get_val(trip$name, ""),
-        raw_type = raw_type
-      )
-    })
-
-    # Convert to data.table
-    dt <- data.table::rbindlist(rows)
-    return(dt)
+  if (!is.list(rwgps_raw) || is.data.frame(rwgps_raw)) {
+    stop("rwgps_raw must be a list of trips from the API")
   }
 
-  # Handle data.frame format (from earlier processing)
-  if (is.data.frame(rwgps_raw)) {
-    if (nrow(rwgps_raw) == 0) {
-      return(data.table::data.table())
-    }
+  # Helper to safely extract scalar values
+  get_val <- function(x, default = NA) {
+    if (is.null(x)) return(default)
+    if (length(x) == 0) return(default)
+    return(x)
+  }
 
-    dt <- data.table::as.data.table(rwgps_raw)
-
-    # Standardize activity type
-    dt[, activity_type_std := data.table::fcase(
-      grepl("running", activity_type, ignore.case = TRUE), "running",
-      grepl("cycling", activity_type, ignore.case = TRUE), "cycling",
+  # Convert each list element to a standardized row
+  rows <- lapply(rwgps_raw, function(trip) {
+    # Standardize activity type (handle "cycling:road", "running", etc.)
+    raw_type <- get_val(trip$activity_type, "")
+    activity_type <- data.table::fcase(
+      grepl("running", raw_type, ignore.case = TRUE), "running",
+      grepl("cycling", raw_type, ignore.case = TRUE), "cycling",
       default = "other"
-    )]
+    )
 
-    # Parse start date
-    dt[, start_datetime := lubridate::ymd_hms(departed_at, tz = "UTC")]
-    dt[, date := as.Date(start_datetime)]
-    dt[, start_time := format(start_datetime, "%H:%M:%S")]
+    # Parse start date - RWGPS uses 'departed_at'
+    start_datetime <- lubridate::ymd_hms(trip$departed_at, tz = "UTC")
 
-    # Extract relevant fields with standardized names
-    result <- dt[, .(
-      activity_id = as.character(id),
+    # Handle heart rate
+    avg_hr <- get_val(trip$avg_hr, NA_real_)
+    has_hr <- !is.na(avg_hr)
+
+    list(
+      activity_id = as.character(get_val(trip$id)),
       source = "rwgps",
-      activity_type = activity_type_std,
-      date,
-      start_time,
-      start_datetime,
-      distance = if ("distance" %in% names(dt)) distance else NA_real_,  # meters
-      duration = if ("moving_time" %in% names(dt)) moving_time else if ("duration" %in% names(dt)) duration else NA_real_,  # seconds
-      elevation_gain = if ("elevation_gain" %in% names(dt)) elevation_gain else NA_real_,  # meters
-      has_heartrate = if ("avg_hr" %in% names(dt)) !is.na(avg_hr) else FALSE,
-      avg_heartrate = if ("avg_hr" %in% names(dt)) avg_hr else NA_real_,
-      max_heartrate = if ("max_hr" %in% names(dt)) max_hr else NA_real_,
-      name = if ("name" %in% names(dt)) name else NA_character_,
-      raw_type = if ("activity_type" %in% names(dt)) activity_type else NA_character_
-    )]
+      activity_type = activity_type,
+      date = as.Date(start_datetime),
+      start_time = format(start_datetime, "%H:%M:%S"),
+      start_datetime = start_datetime,
+      distance = get_val(trip$distance, 0),  # meters
+      duration = get_val(trip$moving_time, get_val(trip$duration, 0)),  # seconds, prefer moving_time
+      elevation_gain = get_val(trip$elevation_gain, 0),  # meters
+      has_heartrate = has_hr,
+      avg_heartrate = avg_hr,
+      max_heartrate = get_val(trip$max_hr, NA_real_),
+      avg_speed = get_val(trip$avg_speed, NA_real_),  # km/h (already in correct unit)
+      max_speed = get_val(trip$max_speed, NA_real_),  # km/h (already in correct unit)
+      name = get_val(trip$name, ""),
+      raw_type = raw_type
+    )
+  })
 
-    return(result)
-  }
-
-  # Unknown format
-  stop("rwgps_raw must be a list or data.frame")
+  # Convert to data.table
+  dt <- data.table::rbindlist(rows)
+  return(dt)
 }
 
 #' Combine activities from multiple sources
@@ -289,16 +197,14 @@ clean_activities <- function(activities) {
   # Convert distance to kilometers for easier reading
   dt[, distance_km := distance / 1000]
 
-  # Convert duration to minutes
-  dt[, duration_min := duration / 60]
-
+  # Convert duration to hours
+  dt[, duration_hrs := duration / 3600]
   # Calculate pace (min/km) for running
   dt[activity_type == "running" & duration > 0 & distance > 0,
      pace_min_km := (duration / 60) / distance_km]
 
-  # Calculate speed (km/h) for cycling
-  dt[activity_type == "cycling" & duration > 0 & distance > 0,
-     speed_kmh := distance_km / (duration / 3600)]
+  # Note: avg_speed and max_speed are extracted from API data, not calculated
+  # Both APIs provide speed: Strava in m/s (converted to km/h), RWGPS in km/h
 
   # Add year, month, week for grouping
   dt[, year := lubridate::year(date)]
@@ -326,13 +232,13 @@ clean_activities <- function(activities) {
 #'
 #' @return data.table with cleaned activities
 #' @export
+#' @import data.table
 process_activities <- function() {
   message("Processing activities...")
 
   # Load raw data from storage (in API-specific formats)
   strava_raw <- load_raw_data("strava")
   rwgps_raw <- load_raw_data("rwgps")
-
   # Harmonize each source to standardized schema
   message("Harmonizing data to standard schema...")
   strava_harmonized <- harmonize_strava_raw(strava_raw)
@@ -348,6 +254,8 @@ process_activities <- function() {
 
   # Clean and validate
   cleaned <- clean_activities(combined)
+  cleaned |> 
+    saveRDS(file = normalizePath(file.path(get_data_dir(), "combined_data.rds"), mustWork = FALSE))
 
   return(cleaned)
 }

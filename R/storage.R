@@ -3,7 +3,7 @@
 #' @return Character string with path to data directory
 #' @noRd
 get_data_dir <- function() {
-  dir_path <- path.expand("~/.dive")
+  dir_path <- path.expand("./data-raw")
   return(dir_path)
 }
 
@@ -85,8 +85,8 @@ load_raw_data <- function(source = c("strava", "rwgps")) {
   source <- match.arg(source)
 
   filename <- switch(source,
-    strava = "raw_strava.qs",
-    rwgps = "raw_ridewithgps.qs"
+    strava = "raw_strava.rds",
+    rwgps = "raw_rwgps.rds"
   )
 
   filepath <- file.path(get_data_dir(), filename)
@@ -95,7 +95,7 @@ load_raw_data <- function(source = c("strava", "rwgps")) {
     return(NULL)
   }
 
-  data <- qs::qread(filepath, nthreads = 2)
+  data <- readRDS(filepath)
   return(data)
 }
 

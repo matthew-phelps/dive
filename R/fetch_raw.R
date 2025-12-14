@@ -3,11 +3,11 @@
 #' Fetches all activities from Strava API and saves the raw JSON response
 #' for later processing. This avoids repeatedly hitting the API during development.
 #'
-#' @param output_file Path to save the raw data (default: "data-raw/strava_raw_full.rds")
+#' @param output_file Path to save the raw data (default: "data-raw/raw_strava.rds")
 #' @param per_page Number of activities per page (max 200)
 #' @return Invisible list of raw activity data
 #' @export
-fetch_raw_strava <- function(output_file = "data-raw/strava_raw_full.rds", per_page = 200) {
+fetch_raw_strava <- function(output_file = "data-raw/raw_strava.rds", per_page = 200) {
   message("Fetching raw Strava data...")
 
   # Make sure we're authenticated
@@ -79,12 +79,12 @@ fetch_raw_strava <- function(output_file = "data-raw/strava_raw_full.rds", per_p
 #'
 #' Exports a sample of activities to JSON for inspection
 #'
-#' @param input_file Path to the saved raw data file (default: "data-raw/strava_raw_full.rds")
+#' @param input_file Path to the saved raw data file (default: "data-raw/raw_strava.rds")
 #' @param output_file Path to save the sample JSON (default: auto-generated from input_file)
 #' @param n_samples Number of activities to include in sample (default: 3)
 #' @return Invisible sample data
 #' @export
-export_sample_strava <- function(input_file = "data-raw/strava_raw_full.rds",
+export_sample_strava <- function(input_file = "data-raw/raw_strava.rds",
                                   output_file = NULL,
                                   n_samples = 3) {
   raw_data <- load_raw_strava(input_file)
@@ -112,7 +112,7 @@ export_sample_strava <- function(input_file = "data-raw/strava_raw_full.rds",
 #' @param input_file Path to the saved raw data file
 #' @return List of raw activity data
 #' @export
-load_raw_strava <- function(input_file = "data-raw/strava_raw_full.rds") {
+load_raw_strava <- function(input_file = "data-raw/raw_strava.rds") {
   if (!file.exists(input_file)) {
     stop("Raw data file not found: ", input_file, "\n",
          "Run fetch_raw_strava() first!")
@@ -172,11 +172,11 @@ inspect_raw_strava <- function(raw_data = NULL) {
 #' Fetches all trips from RideWithGPS API and saves the raw JSON response
 #' for later processing.
 #'
-#' @param output_file Path to save the raw data (default: "data-raw/rwgps_raw_full.rds")
+#' @param output_file Path to save the raw data (default: "data-raw/raw_rwgps.rds")
 #' @param limit Number of trips per page (default 50)
 #' @return Invisible list of raw trip data
 #' @export
-fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit = 50) {
+fetch_raw_rwgps <- function(output_file = "data-raw/raw_rwgps.rds", limit = 50) {
   message("Fetching raw RideWithGPS data...")
 
   # Check if credentials are configured
@@ -285,12 +285,12 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
 #'
 #' Exports a sample of trips to JSON for inspection
 #'
-#' @param input_file Path to the saved raw data file (default: "data-raw/rwgps_raw_full.rds")
+#' @param input_file Path to the saved raw data file (default: "data-raw/raw_rwgps.rds")
 #' @param output_file Path to save the sample JSON (default: auto-generated from input_file)
 #' @param n_samples Number of trips to include in sample (default: 3)
 #' @return Invisible sample data
 #' @export
-export_sample_rwgps <- function(input_file = "data-raw/rwgps_raw_full.rds",
+export_sample_rwgps <- function(input_file = "data-raw/raw_rwgps.rds",
                                  output_file = NULL,
                                  n_samples = 3) {
   raw_data <- load_raw_rwgps(input_file)
@@ -318,7 +318,7 @@ export_sample_rwgps <- function(input_file = "data-raw/rwgps_raw_full.rds",
 #' @param input_file Path to the saved raw data file
 #' @return List of raw trip data
 #' @export
-load_raw_rwgps <- function(input_file = "data-raw/rwgps_raw_full.rds") {
+load_raw_rwgps <- function(input_file = "data-raw/raw_rwgps.rds") {
   if (!file.exists(input_file)) {
     stop("Raw data file not found: ", input_file, "\n",
          "Run fetch_raw_rwgps() first!")
