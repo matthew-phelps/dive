@@ -17,20 +17,26 @@ find_duplicate_pairs <- function(activities) {
     return(data.table::data.table())
   }
 
-  dt <- data.table::copy(activities)
+  dt <- data.table::as.data.table(activities)
 
-  # Create a key for efficient joining
-  data.table::setkey(dt, date, activity_type)
+  # Select only needed columns for the join
+  dt_join <- dt[, .(activity_id, source, date, activity_type, start_time,
+                    start_datetime, distance, distance_km, has_heartrate)]
 
-  # Self-join to find activities on the same date with same type
-  pairs <- dt[dt,
-    on = .(date, activity_type),
+  # Create copies for self-join
+  dt1 <- data.table::copy(dt_join)
+  dt2 <- data.table::copy(dt_join)
+
+  # Self-join on same date and activity type
+  pairs <- merge(
+    dt1, dt2,
+    by = c("date", "activity_type"),
     allow.cartesian = TRUE,
-    nomatch = NULL
-  ]
+    suffixes = c("_1", "_2")
+  )
 
   # Filter to only cross-source pairs (not same activity)
-  pairs <- pairs[i.activity_id != activity_id & i.source != source]
+  pairs <- pairs[activity_id_1 != activity_id_2 & source_1 != source_2]
 
   if (nrow(pairs) == 0) {
     return(data.table::data.table())
@@ -38,12 +44,12 @@ find_duplicate_pairs <- function(activities) {
 
   # Calculate time difference in minutes
   pairs[, time_diff_min := abs(
-    as.numeric(difftime(i.start_datetime, start_datetime, units = "mins"))
+    as.numeric(difftime(start_datetime_1, start_datetime_2, units = "mins"))
   )]
 
   # Calculate distance difference percentage
   pairs[, distance_diff_pct := abs(
-    (i.distance - distance) / ((i.distance + distance) / 2) * 100
+    (distance_1 - distance_2) / ((distance_1 + distance_2) / 2) * 100
   )]
 
   # Filter to matches within thresholds
@@ -58,21 +64,26 @@ find_duplicate_pairs <- function(activities) {
 
   # Select relevant columns and rename for clarity
   result <- matches[, .(
-    id1 = i.activity_id,
-    source1 = i.source,
-    date1 = i.date,
-    time1 = i.start_time,
-    distance1_km = i.distance_km,
-    has_hr1 = i.has_heartrate,
-    id2 = activity_id,
-    source2 = source,
+    id1 = activity_id_1,
+    source1 = source_1,
+    date1 = date,
+    time1 = start_time_1,
+    distance1_km = distance_km_1,
+    has_hr1 = has_heartrate_1,
+    id2 = activity_id_2,
+    source2 = source_2,
     date2 = date,
-    time2 = start_time,
-    distance2_km = distance_km,
-    has_hr2 = has_heartrate,
+    time2 = start_time_2,
+    distance2_km = distance_km_2,
+    has_hr2 = has_heartrate_2,
     time_diff_min,
     distance_diff_pct
   )]
+
+  # Remove duplicate pairs (A-B is same as B-A)
+  result[, pair_key := paste(pmin(id1, id2), pmax(id1, id2), sep = "_")]
+  result <- result[!duplicated(pair_key)]
+  result[, pair_key := NULL]
 
   return(result)
 }
@@ -108,8 +119,8 @@ decide_duplicates <- function(pairs) {
     default = id2
   )]
 
-  dt[, discard_id := data.table::fif(keep_id == id1, id2, id1)]
-  dt[, discard_source := data.table::fif(keep_id == id1, source2, source1)]
+  dt[, discard_id := ifelse(keep_id == id1, id2, id1)]
+  dt[, discard_source := ifelse(keep_id == id1, source2, source1)]
 
   # Create summary
   decisions <- dt[, .(
