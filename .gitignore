@@ -35,6 +35,17 @@ Thumbs.db
 *.qs
 data-local/
 
+# Data files
+*.json
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.xlsx
+*.xls
+*.sqlite
+*.db
+
 # Development
 /dev/*.html
 rsconnect/
