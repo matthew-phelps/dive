@@ -66,16 +66,6 @@ fetch_raw_strava <- function(output_file = "data-raw/strava_raw_full.rds", per_p
   saveRDS(all_activities, output_file)
   message("Saved to: ", output_file)
 
-  # Also save a sample for inspection
-  sample_file <- sub("\\.rds$", "_sample.json", output_file)
-  jsonlite::write_json(
-    all_activities[1:min(3, length(all_activities))],
-    sample_file,
-    pretty = TRUE,
-    auto_unbox = TRUE
-  )
-  message("Saved sample (3 activities) to: ", sample_file)
-
   # Print structure info
   if (length(all_activities) > 0) {
     message("\nFields available in activities:")
@@ -83,6 +73,38 @@ fetch_raw_strava <- function(output_file = "data-raw/strava_raw_full.rds", per_p
   }
 
   invisible(all_activities)
+}
+
+#' Export sample activities to JSON
+#'
+#' Exports a sample of activities to JSON for inspection
+#'
+#' @param input_file Path to the saved raw data file (default: "data-raw/strava_raw_full.rds")
+#' @param output_file Path to save the sample JSON (default: auto-generated from input_file)
+#' @param n_samples Number of activities to include in sample (default: 3)
+#' @return Invisible sample data
+#' @export
+export_sample_strava <- function(input_file = "data-raw/strava_raw_full.rds",
+                                  output_file = NULL,
+                                  n_samples = 3) {
+  raw_data <- load_raw_strava(input_file)
+
+  if (is.null(output_file)) {
+    output_file <- sub("\\.rds$", "_sample.json", input_file)
+  }
+
+  sample_data <- raw_data[1:min(n_samples, length(raw_data))]
+
+  jsonlite::write_json(
+    sample_data,
+    output_file,
+    pretty = TRUE,
+    auto_unbox = TRUE
+  )
+
+  message("Saved sample (", length(sample_data), " activities) to: ", output_file)
+
+  invisible(sample_data)
 }
 
 #' Load saved raw Strava data
@@ -241,16 +263,6 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
   saveRDS(all_trips, output_file)
   message("Saved to: ", output_file)
 
-  # Also save a sample for inspection
-  sample_file <- sub("\\.rds$", "_sample.json", output_file)
-  jsonlite::write_json(
-    all_trips[1:min(3, length(all_trips))],
-    sample_file,
-    pretty = TRUE,
-    auto_unbox = TRUE
-  )
-  message("Saved sample (3 trips) to: ", sample_file)
-
   # Print structure info
   if (length(all_trips) > 0) {
     message("\nFields available in trips:")
@@ -258,6 +270,38 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
   }
 
   invisible(all_trips)
+}
+
+#' Export sample trips to JSON
+#'
+#' Exports a sample of trips to JSON for inspection
+#'
+#' @param input_file Path to the saved raw data file (default: "data-raw/rwgps_raw_full.rds")
+#' @param output_file Path to save the sample JSON (default: auto-generated from input_file)
+#' @param n_samples Number of trips to include in sample (default: 3)
+#' @return Invisible sample data
+#' @export
+export_sample_rwgps <- function(input_file = "data-raw/rwgps_raw_full.rds",
+                                 output_file = NULL,
+                                 n_samples = 3) {
+  raw_data <- load_raw_rwgps(input_file)
+
+  if (is.null(output_file)) {
+    output_file <- sub("\\.rds$", "_sample.json", input_file)
+  }
+
+  sample_data <- raw_data[1:min(n_samples, length(raw_data))]
+
+  jsonlite::write_json(
+    sample_data,
+    output_file,
+    pretty = TRUE,
+    auto_unbox = TRUE
+  )
+
+  message("Saved sample (", length(sample_data), " trips) to: ", output_file)
+
+  invisible(sample_data)
 }
 
 #' Load saved raw RideWithGPS data
