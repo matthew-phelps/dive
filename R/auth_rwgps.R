@@ -88,11 +88,6 @@ rwgps_auth <- function(force = FALSE) {
   message("Starting RideWithGPS OAuth flow...")
   message("A browser window will open for authentication.")
 
-  # Workaround for macOS SSL issues
-  old_bundle <- Sys.getenv("CURL_CA_BUNDLE")
-  Sys.setenv(CURL_CA_BUNDLE = "")
-  on.exit(Sys.setenv(CURL_CA_BUNDLE = old_bundle))
-
   # Custom OAuth flow to use JSON token exchange (RWGPS requirement)
   redirect_uri <- "http://localhost:1410/"
 
@@ -149,22 +144,37 @@ rwgps_auth <- function(force = FALSE) {
       # Try to extract the response for better error reporting
       if (inherits(e, "httr2_failure")) {
         resp <- e$resp
-        status <- httr2::resp_status(resp)
-        body <- tryCatch(
-          httr2::resp_body_json(resp),
-          error = function(e2) httr2::resp_body_string(resp)
-        )
 
-        stop(
-          "RideWithGPS token exchange failed:\n",
-          "  Status: ", status, "\n",
-          "  Response: ", paste(utils::capture.output(print(body)), collapse = "\n"),
-          "\n\nDebug info:",
-          "\n  Token URL: ", client$token_url,
-          "\n  Client ID: ", substr(client$id, 1, 8), "...",
-          "\n  Redirect URI: ", redirect_uri,
-          call. = FALSE
-        )
+        # Check if we have a response object to work with
+        if (!is.null(resp)) {
+          status <- httr2::resp_status(resp)
+          body <- tryCatch(
+            httr2::resp_body_json(resp),
+            error = function(e2) httr2::resp_body_string(resp)
+          )
+
+          stop(
+            "RideWithGPS token exchange failed:\n",
+            "  Status: ", status, "\n",
+            "  Response: ", paste(utils::capture.output(print(body)), collapse = "\n"),
+            "\n\nDebug info:",
+            "\n  Token URL: ", client$token_url,
+            "\n  Client ID: ", substr(client$id, 1, 8), "...",
+            "\n  Redirect URI: ", redirect_uri,
+            call. = FALSE
+          )
+        } else {
+          # No response object available (e.g., network error)
+          stop(
+            "RideWithGPS token exchange failed:\n",
+            "  Error: ", conditionMessage(e),
+            "\n\nDebug info:",
+            "\n  Token URL: ", client$token_url,
+            "\n  Client ID: ", substr(client$id, 1, 8), "...",
+            "\n  Redirect URI: ", redirect_uri,
+            call. = FALSE
+          )
+        }
       }
       stop(e)
     }
@@ -266,14 +276,17 @@ rwgps_deauth <- function() {
 #'
 #' Creates an httr2 request object with RideWithGPS authentication
 #'
-#' @param endpoint API endpoint path (without base URL)
+#' @param endpoint API endpoint path (e.g., "v1/trips.json")
 #' @return httr2 request object
 #' @noRd
 rwgps_request <- function(endpoint) {
   token <- get_rwgps_token_with_refresh()
 
-  req <- httr2::request("https://ridewithgps.com/api") |>
-    httr2::req_url_path_append(endpoint) |>
+  # Build full URL: https://ridewithgps.com/api/{endpoint}
+  # Use req_url_path to set the entire path at once, avoiding issues with multiple slashes
+  full_path <- paste0("/api/", endpoint)
+  req <- httr2::request("https://ridewithgps.com") |>
+    httr2::req_url_path(full_path) |>
     httr2::req_auth_bearer_token(token$access_token) |>
     httr2::req_user_agent("dive R package (https://github.com/yourusername/dive)") |>
     httr2::req_retry(max_tries = 3)
@@ -332,18 +345,29 @@ refresh_rwgps_token <- function(token) {
     error = function(e) {
       if (inherits(e, "httr2_failure")) {
         resp <- e$resp
-        status <- httr2::resp_status(resp)
-        body <- tryCatch(
-          httr2::resp_body_json(resp),
-          error = function(e2) httr2::resp_body_string(resp)
-        )
 
-        stop(
-          "RideWithGPS token refresh failed:\n",
-          "  Status: ", status, "\n",
-          "  Response: ", paste(utils::capture.output(print(body)), collapse = "\n"),
-          call. = FALSE
-        )
+        # Check if we have a response object to work with
+        if (!is.null(resp)) {
+          status <- httr2::resp_status(resp)
+          body <- tryCatch(
+            httr2::resp_body_json(resp),
+            error = function(e2) httr2::resp_body_string(resp)
+          )
+
+          stop(
+            "RideWithGPS token refresh failed:\n",
+            "  Status: ", status, "\n",
+            "  Response: ", paste(utils::capture.output(print(body)), collapse = "\n"),
+            call. = FALSE
+          )
+        } else {
+          # No response object available (e.g., network error)
+          stop(
+            "RideWithGPS token refresh failed:\n",
+            "  Error: ", conditionMessage(e),
+            call. = FALSE
+          )
+        }
       }
       stop(e)
     }

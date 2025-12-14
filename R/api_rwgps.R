@@ -12,7 +12,7 @@
 get_rwgps_user_id <- function() {
   message("Fetching RideWithGPS user info...")
 
-  req <- rwgps_request("users/current.json")
+  req <- rwgps_request("v1/users/current.json")
 
   resp <- tryCatch(
     httr2::req_perform(req),
@@ -37,26 +37,25 @@ get_rwgps_user_id <- function() {
 #' Filters to running and cycling activities only.
 #'
 #' @param after Optional. Date to fetch activities after. If NULL, fetches all.
-#' @param limit Number of trips per page (default 50)
+#' @param page_size Number of trips per page (default 50, max 200)
 #' @return data.table with trip metadata
 #' @export
-fetch_rwgps_trips <- function(after = NULL, limit = 50) {
+fetch_rwgps_trips <- function(after = NULL, page_size = 50) {
   message("Fetching RideWithGPS trips...")
 
-  # Get user ID first
-  user_id <- get_rwgps_user_id()
-  message("User ID: ", user_id)
+  # Ensure page_size is within API limits (20-200)
+  page_size <- max(20, min(200, page_size))
 
   all_trips <- list()
-  offset <- 0
+  page <- 1
   total_fetched <- 0
 
   repeat {
-    message("Fetching trips with offset ", offset, "...")
+    message("Fetching trips page ", page, "...")
 
-    # Build request
-    req <- rwgps_request(paste0("users/", user_id, "/trips.json")) |>
-      httr2::req_url_query(limit = limit, offset = offset)
+    # Build request using v1 API endpoint (note: trips endpoint includes .json)
+    req <- rwgps_request("v1/trips.json") |>
+      httr2::req_url_query(page = page, page_size = page_size)
 
     # Execute request
     resp <- tryCatch(
@@ -74,17 +73,17 @@ fetch_rwgps_trips <- function(after = NULL, limit = 50) {
     # Parse response
     result <- httr2::resp_body_json(resp, simplifyVector = TRUE)
 
-    # Check if we got any trips
-    if (is.null(result$results) || length(result$results) == 0) {
+    # Check if we got any trips (v1 API uses 'trips' not 'results')
+    if (is.null(result$trips) || length(result$trips) == 0) {
       message("No more trips to fetch")
       break
     }
 
-    trips <- result$results
+    trips <- result$trips
 
-    # Filter to running and cycling only (if type field exists)
-    if ("type" %in% names(trips)) {
-      trips <- trips[trips$type %in% c("ride", "run"), ]
+    # Filter to running and cycling only (if activity_type field exists)
+    if ("activity_type" %in% names(trips)) {
+      trips <- trips[trips$activity_type %in% c("cycling", "running"), ]
     }
 
     if (nrow(trips) > 0) {
@@ -101,13 +100,20 @@ fetch_rwgps_trips <- function(after = NULL, limit = 50) {
       }
     }
 
-    # Check if we should continue
-    if (length(result$results) < limit) {
-      message("Reached end of trips")
+    # Check if we should continue using pagination metadata
+    if (!is.null(result$meta) && !is.null(result$meta$pagination)) {
+      page_count <- result$meta$pagination$page_count
+      if (page >= page_count) {
+        message("Reached end of trips (page ", page, " of ", page_count, ")")
+        break
+      }
+    } else if (length(result$trips) < page_size) {
+      # Fallback if no pagination metadata
+      message("Reached end of trips (received fewer than page_size)")
       break
     }
 
-    offset <- offset + limit
+    page <- page + 1
 
     # Rate limiting
     Sys.sleep(0.5)
@@ -141,10 +147,10 @@ parse_rwgps_trips <- function(trips) {
   # Convert to data.table
   dt <- data.table::as.data.table(trips)
 
-  # Standardize activity type
-  dt[, activity_type := data.table::fcase(
-    type == "run", "running",
-    type == "ride", "cycling",
+  # Standardize activity type (v1 API already uses standardized values)
+  dt[, activity_type_std := data.table::fcase(
+    activity_type == "running", "running",
+    activity_type == "cycling", "cycling",
     default = "other"
   )]
 
@@ -154,22 +160,22 @@ parse_rwgps_trips <- function(trips) {
   dt[, start_time := format(start_datetime, "%H:%M:%S")]
 
   # Extract relevant fields
-  # Note: RideWithGPS may have different field names than Strava
+  # Note: v1 API already provides distance in meters, duration in seconds, elevation_gain in meters
   result <- dt[, .(
     activity_id = as.character(id),
     source = "rwgps",
-    activity_type,
+    activity_type = activity_type_std,
     date,
     start_time,
     start_datetime,
-    distance = if ("distance" %in% names(dt)) distance * 1000 else NA_real_,  # Convert km to meters if needed
-    duration = if ("duration" %in% names(dt)) duration else if ("moving_time" %in% names(dt)) moving_time else NA_real_,  # seconds
-    elevation_gain = if ("elevation_gain" %in% names(dt)) elevation_gain else NA_real_,  # meters
-    has_heartrate = if ("has_hr_data" %in% names(dt)) has_hr_data else FALSE,
+    distance = if ("distance" %in% names(dt)) distance else NA_real_,  # Already in meters
+    duration = if ("duration" %in% names(dt)) duration else if ("moving_time" %in% names(dt)) moving_time else NA_real_,  # Already in seconds
+    elevation_gain = if ("elevation_gain" %in% names(dt)) elevation_gain else NA_real_,  # Already in meters
+    has_heartrate = if ("avg_hr" %in% names(dt)) !is.na(avg_hr) & !is.null(avg_hr) else FALSE,
     avg_heartrate = if ("avg_hr" %in% names(dt)) avg_hr else NA_real_,
     max_heartrate = if ("max_hr" %in% names(dt)) max_hr else NA_real_,
     name = if ("name" %in% names(dt)) name else NA_character_,
-    raw_type = if ("type" %in% names(dt)) type else NA_character_
+    raw_type = if ("activity_type" %in% names(dt)) activity_type else NA_character_
   )]
 
   return(result)
@@ -211,7 +217,7 @@ get_rwgps_trips <- function(after = NULL) {
 get_rwgps_user <- function() {
   message("Fetching RideWithGPS user info...")
 
-  req <- rwgps_request("users/current.json")
+  req <- rwgps_request("v1/users/current.json")
 
   resp <- tryCatch(
     httr2::req_perform(req),

@@ -192,9 +192,9 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
     rwgps_auth()
   }
 
-  # Get user ID first
-  message("Getting user ID...")
-  req <- rwgps_request("users/current.json")
+  # Get user info first
+  message("Getting user info...")
+  req <- rwgps_request("v1/users/current.json")
   resp <- tryCatch(
     httr2::req_perform(req),
     error = function(e) {
@@ -210,16 +210,17 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
 
   user_info <- httr2::resp_body_json(resp, simplifyVector = FALSE)
   user_id <- user_info$user$id
-  message("User ID: ", user_id)
+  user_name <- user_info$user$name
+  message("Authenticated as: ", user_name, " (ID: ", user_id, ")")
 
   all_pages <- list()
-  offset <- 0
+  page <- 1
 
   repeat {
-    message("Fetching trips with offset ", offset, "...")
+    message("Fetching trips page ", page, "...")
 
-    req <- rwgps_request(paste0("users/", user_id, "/trips.json")) |>
-      httr2::req_url_query(limit = limit, offset = offset)
+    req <- rwgps_request("v1/trips.json") |>
+      httr2::req_url_query(page = page, page_size = limit)
 
     resp <- tryCatch(
       httr2::req_perform(req),
@@ -236,21 +237,29 @@ fetch_raw_rwgps <- function(output_file = "data-raw/rwgps_raw_full.rds", limit =
     # Get raw JSON as list
     result <- httr2::resp_body_json(resp, simplifyVector = FALSE)
 
-    if (is.null(result$results) || length(result$results) == 0) {
+    if (is.null(result$trips) || length(result$trips) == 0) {
       message("No more trips")
       break
     }
 
-    trips <- result$results
+    trips <- result$trips
     message("  Got ", length(trips), " trips")
     all_pages[[length(all_pages) + 1]] <- trips
 
-    if (length(trips) < limit) {
-      message("Reached end")
+    # Check pagination metadata
+    if (!is.null(result$meta) && !is.null(result$meta$pagination)) {
+      page_count <- result$meta$pagination$page_count
+      if (page >= page_count) {
+        message("Reached end (page ", page, " of ", page_count, ")")
+        break
+      }
+    } else if (length(trips) < limit) {
+      # Fallback if no pagination metadata
+      message("Reached end (fewer trips than page_size)")
       break
     }
 
-    offset <- offset + limit
+    page <- page + 1
     Sys.sleep(0.5)  # Be nice to the API
   }
 
