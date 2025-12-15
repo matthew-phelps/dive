@@ -254,10 +254,14 @@ process_activities <- function() {
 
   # Clean and validate
   cleaned <- clean_activities(combined)
-  cleaned |> 
-    saveRDS(file = normalizePath(file.path(get_data_dir(), "combined_data.rds"), mustWork = FALSE))
 
-  return(cleaned)
+  # Deduplicate activities
+  deduplicated <- deduplicate_activities(cleaned)
+
+  # Save the deduplicated dataset with flags
+  save_cleaned_data(deduplicated)
+
+  return(deduplicated)
 }
 
 #' Get activity summary statistics
